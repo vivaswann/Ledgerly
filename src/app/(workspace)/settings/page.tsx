@@ -78,12 +78,6 @@ export default async function Settings() {
             CSV exports include only transactions belonging to your account.
             Keep exports in a secure place.
           </p>
-          <p className="muted">
-            Full database backups and restores are managed by the deployment
-            owner through the PostgreSQL provider. A database backup includes
-            every user and is never available through this application. CSV is
-            not a full backup.
-          </p>
         </div>
       </Panel>
       <Panel
