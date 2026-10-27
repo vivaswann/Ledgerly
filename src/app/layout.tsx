@@ -7,6 +7,7 @@ export const metadata: Metadata = {
   description:
     "A clear, private view of your money. Personal finance and wealth management.",
 };
+export const dynamic = "force-dynamic";
 export default function RootLayout({
   children,
 }: {

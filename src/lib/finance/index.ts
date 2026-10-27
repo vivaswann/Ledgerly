@@ -1,4 +1,5 @@
 import Decimal from "decimal.js";
+import { ValidationError } from "../errors";
 Decimal.set({ precision: 40, rounding: Decimal.ROUND_HALF_UP });
 export type Money = Decimal.Value;
 export const D = (v: Money = 0) => new Decimal(v);
@@ -89,7 +90,7 @@ export function outstanding(
 }
 export function validateSettlement(amount: Money, remaining: Money) {
   if (D(amount).lte(0) || D(amount).gt(remaining))
-    throw Error(
+    throw new ValidationError(
       "Repayment must be positive and no greater than the outstanding balance.",
     );
 }

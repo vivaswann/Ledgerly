@@ -1,6 +1,7 @@
 import { Prisma, PrismaClient } from "@prisma/client";
 import { schemas, type Entity } from "../validations";
 import { D, outstanding, validateSettlement } from "../finance";
+import { ValidationError } from "../errors";
 type Client = Prisma.TransactionClient;
 export class AccessError extends Error {
   constructor() {
@@ -15,7 +16,8 @@ async function account(
 ) {
   const row = await tx.account.findFirst({ where: { id, userId } });
   if (!row) throw new AccessError();
-  if (row.archived && id !== existing) throw Error("Choose an active account.");
+  if (row.archived && id !== existing)
+    throw new ValidationError("Choose an active account.");
   return row;
 }
 async function lockSplit(tx: Client, userId: string, id: string) {
@@ -55,7 +57,9 @@ export async function mutate(
                 where: { userId, categoryId: id },
               }))
             )
-              throw Error("A category with history cannot change type.");
+              throw new ValidationError(
+                "A category with history cannot change type.",
+              );
           }
           return where
             ? tx.category.update({ where, data })
@@ -68,11 +72,14 @@ export async function mutate(
           await account(tx, userId, data.accountId, old?.accountId);
           if (data.type === "Transfer") {
             if (!data.destinationId || data.destinationId === data.accountId)
-              throw Error("Choose a different destination account.");
+              throw new ValidationError(
+                "Choose a different destination account.",
+              );
             await account(tx, userId, data.destinationId, old?.destinationId);
           } else data.destinationId = null;
           if (["Expense", "Income"].includes(data.type)) {
-            if (!data.categoryId) throw Error("Choose a category.");
+            if (!data.categoryId)
+              throw new ValidationError("Choose a category.");
             const c = await tx.category.findFirst({
               where: { id: data.categoryId, userId },
             });
@@ -81,7 +88,7 @@ export async function mutate(
               c.type !== data.type ||
               (c.archived && old?.categoryId !== c.id)
             )
-              throw Error(
+              throw new ValidationError(
                 "Choose an active category matching the transaction type.",
               );
           } else data.categoryId = null;
@@ -118,7 +125,9 @@ export async function mutate(
         case "split": {
           const { friendName, ...data } = schemas.split.parse(raw);
           if (D(data.recoverable).gt(data.totalAmount))
-            throw Error("Recoverable amount cannot exceed the total expense.");
+            throw new ValidationError(
+              "Recoverable amount cannot exceed the total expense.",
+            );
           await account(tx, userId, data.accountId);
           const name = friendName.toLocaleLowerCase("en-IN"),
             friend = await tx.friend.upsert({
@@ -143,7 +152,7 @@ export async function mutate(
             outstanding(s.recoverable, s.settlements),
           );
           if (data.date < s.date)
-            throw Error("Repayment cannot predate the split.");
+            throw new ValidationError("Repayment cannot predate the split.");
           return tx.settlement.create({ data: { ...data, userId } });
         }
         case "bulk": {
@@ -164,7 +173,7 @@ export async function mutate(
             const amount = outstanding(s.recoverable, s.settlements);
             if (amount.gt(0)) {
               if (data.date < s.date)
-                throw Error("Repayment cannot predate a split.");
+                throw new ValidationError("Repayment cannot predate a split.");
               await tx.settlement.create({
                 data: {
                   splitId: s.id,
@@ -204,6 +213,7 @@ export async function remove(
       : entity === "stock"
         ? await db.stockHolding.deleteMany({ where: { id, userId } })
         : null;
-  if (!result) throw Error("This record must be archived instead.");
+  if (!result)
+    throw new ValidationError("This record must be archived instead.");
   if (!result.count) throw new AccessError();
 }

@@ -6,6 +6,7 @@ import { mutate, remove, AccessError } from "@/lib/services/mutations";
 import { schemas, type Entity } from "@/lib/validations";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
+import { ValidationError } from "@/lib/errors";
 export const runtime = "nodejs";
 function failure(e: unknown) {
   if (e instanceof AccessError)
@@ -30,9 +31,11 @@ function failure(e: unknown) {
       { status: e.code === "P2002" ? 409 : 400 },
     );
   }
+  if (e instanceof ValidationError)
+    return NextResponse.json({ error: e.message }, { status: 400 });
   return NextResponse.json(
-    { error: e instanceof Error ? e.message : "Unable to save." },
-    { status: 400 },
+    { error: "Unable to save. Please try again." },
+    { status: 500 },
   );
 }
 export async function POST(
