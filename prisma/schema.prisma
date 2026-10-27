@@ -1,0 +1,249 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Account {
+  userId         String
+  user           User           @relation(fields: [userId], references: [id], onDelete: Restrict)
+  id             String         @id @default(uuid())
+  name           String
+  type           String
+  currency       String         @default("INR")
+  openingBalance Decimal        @default(0)
+  archived       Boolean        @default(false)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  outgoing       Transaction[]  @relation("source")
+  incoming       Transaction[]  @relation("destination")
+  stocks         StockHolding[]
+  deposits       FixedDeposit[]
+  splits         SplitTracker[]
+
+  @@unique([id, userId])
+  @@index([userId])
+}
+
+model Category {
+  userId       String
+  user         User          @relation(fields: [userId], references: [id], onDelete: Restrict)
+  id           String        @id @default(uuid())
+  name         String
+  type         String
+  budget       Decimal?
+  description  String?
+  icon         String?
+  archived     Boolean       @default(false)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  transactions Transaction[]
+
+  @@unique([id, userId])
+  @@unique([userId, name, type])
+  @@index([userId])
+}
+
+model Transaction {
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Restrict)
+  id            String    @id @default(uuid())
+  date          DateTime
+  amount        Decimal
+  type          String
+  accountId     String
+  destinationId String?
+  categoryId    String?
+  description   String
+  paymentMethod String
+  consumption   Boolean   @default(true)
+  notes         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  account       Account   @relation("source", fields: [accountId, userId], references: [id, userId], onDelete: Restrict)
+  destination   Account?  @relation("destination", fields: [destinationId, userId], references: [id, userId], onDelete: Restrict)
+  category      Category? @relation(fields: [categoryId, userId], references: [id, userId], onDelete: Restrict)
+
+  @@index([userId])
+  @@index([date, type])
+  @@index([accountId, date])
+  @@index([categoryId])
+}
+
+model StockHolding {
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+  id              String   @id @default(uuid())
+  ticker          String
+  companyName     String
+  shares          Decimal
+  averagePrice    Decimal
+  currentPrice    Decimal
+  purchaseDate    DateTime
+  accountId       String?
+  priceSource     String   @default("Manual")
+  lastPriceUpdate DateTime @default(now())
+  archived        Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  account         Account? @relation(fields: [accountId, userId], references: [id, userId], onDelete: Restrict)
+
+  @@index([userId])
+}
+
+model FixedDeposit {
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+  id           String   @id @default(uuid())
+  bankName     String
+  principal    Decimal
+  annualRate   Decimal
+  startDate    DateTime
+  maturityDate DateTime
+  frequency    String
+  accountId    String?
+  status       String   @default("Active")
+  notes        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  account      Account? @relation(fields: [accountId, userId], references: [id, userId], onDelete: Restrict)
+
+  @@index([userId])
+}
+
+model Friend {
+  userId String
+  user   User           @relation(fields: [userId], references: [id], onDelete: Restrict)
+  id     String         @id @default(uuid())
+  name   String
+  splits SplitTracker[]
+
+  @@unique([id, userId])
+  @@unique([userId, name])
+  @@index([userId])
+}
+
+model SplitTracker {
+  userId      String
+  user        User         @relation(fields: [userId], references: [id], onDelete: Restrict)
+  id          String       @id @default(uuid())
+  friendId    String
+  purpose     String
+  totalAmount Decimal
+  recoverable Decimal
+  accountId   String
+  date        DateTime
+  notes       String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  friend      Friend       @relation(fields: [friendId, userId], references: [id, userId], onDelete: Restrict)
+  account     Account      @relation(fields: [accountId, userId], references: [id, userId], onDelete: Restrict)
+  settlements Settlement[]
+
+  @@unique([id, userId])
+  @@index([userId])
+  @@index([friendId, date])
+}
+
+model Settlement {
+  userId    String
+  user      User         @relation(fields: [userId], references: [id], onDelete: Restrict)
+  id        String       @id @default(uuid())
+  splitId   String
+  amount    Decimal
+  date      DateTime
+  notes     String?
+  createdAt DateTime     @default(now())
+  split     SplitTracker @relation(fields: [splitId, userId], references: [id, userId], onDelete: Restrict)
+
+  @@index([userId])
+  @@index([splitId])
+}
+
+model Preference {
+  userId          String
+  user            User   @relation(fields: [userId], references: [id], onDelete: Restrict)
+  id              String @id @default(uuid())
+  reportingPeriod String @default("month")
+  defaultPayment  String @default("Other")
+
+  @@unique([userId])
+  @@index([userId])
+}
+
+model User {
+  id            String         @id @default(uuid())
+  name          String
+  email         String         @unique
+  emailVerified Boolean        @default(false)
+  image         String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  sessions      Session[]
+  authAccounts  AuthAccount[]
+  accounts      Account[]
+  categories    Category[]
+  transactions  Transaction[]
+  stocks        StockHolding[]
+  deposits      FixedDeposit[]
+  friends       Friend[]
+  splits        SplitTracker[]
+  settlements   Settlement[]
+  preference    Preference?
+}
+
+model Session {
+  id        String   @id @default(uuid())
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model AuthAccount {
+  id                    String    @id @default(uuid())
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@unique([providerId, accountId])
+  @@index([userId])
+}
+
+model Verification {
+  id         String   @id @default(uuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+}
+
+model RateLimit {
+  id          String @id @default(uuid())
+  key         String @unique
+  count       Int
+  lastRequest BigInt
+}
