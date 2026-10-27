@@ -21,7 +21,7 @@ Next.js 16 App Router, React, strict TypeScript, Tailwind 4, Radix/shadcn-style 
 5. Open `/signup` to create your own account. Registration creates only that user's default categories and preferences. Add your own bank/cash account to get started.
 6. Test sign-up, sign-out, sign-in, a transaction, and export at the actual HTTPS URL. If the domain changes, update `BETTER_AUTH_URL` and redeploy.
 
-Do not prefix database URLs or auth secrets with `NEXT_PUBLIC_`. Do not commit `.env` or database files. Vercel's repository and database integration setup remains an owner action; no hosted project or paid resource has been created by this code change.
+Do not prefix database URLs or auth secrets with `NEXT_PUBLIC_`. Do not commit `.env` or database files.
 
 For PgBouncer transaction-pool endpoints, follow your provider's Prisma 6 connection-string guidance; some require `pgbouncer=true`. Runtime traffic uses `DATABASE_URL`, while Prisma migrations use `DIRECT_URL`. Do not run preview migrations against production data. Provider backup retention, TLS, connection limits, and availability should be configured in the database dashboard.
 
@@ -126,18 +126,10 @@ Unit/integration tests use in-memory PGlite with PostgreSQL wire connections and
 
 The browser runner creates a disposable in-memory database, an independent secret, port 3100, and `.next-e2e`. Each browser test resets **only that runner-provided database** and signs up a disposable test account. Microsoft Edge is used; screenshots/traces go to ignored `test-results/`. Auth browser checks include unauthenticated redirects/API rejection, incorrect passwords, signup/signin/signout, revoked-cookie replay, and two simultaneous users attacking each other's records and exports. The existing finance workflows and mobile/theme checks also run after authentication.
 
-The embedded test database's multiplexer is not a substitute for production PostgreSQL concurrency/load testing. Test the configured hosted provider and HTTPS deployment before inviting real users. No hosted deployment has been tested without its owner-provided database and Vercel configuration.
+The embedded test database's multiplexer is not a substitute for production PostgreSQL concurrency/load testing. Test the configured hosted provider and HTTPS deployment before inviting real users.
 
 ## Backups
 
 Use your hosted PostgreSQL provider's protected backup/snapshot tools or a secured `pg_dump` through the direct connection. Full backups contain all users and must remain restricted to the deployment owner. Preserve a current backup and coordinate downtime before any restore. Never expose a database backup through a public app route.
 
 User CSV exports contain only that user's filtered transactions, not a full backup. For local PGlite development, stop the app and database server before copying `.data/postgres/`. Keep the preserved legacy SQLite file separately. No automatic restore/overwrite/reset operation is included.
-
-## Verification completed for this change
-
-- PostgreSQL migration applied successfully to a new, separate local development database.
-- ESLint, strict TypeScript, 38 unit/database/ownership tests, and all 6 Edge browser workflows passed.
-- Production Webpack build passed. Production smoke verification confirmed all eight financial pages redirect unauthenticated visitors to sign-in, `/login` and `/signup` return 200, and unauthenticated writes/CSV export return 401. Next.js may send a streamed redirect (HTTP 200 plus its redirect meta tag) after a loading boundary starts; the protected page still requires a valid session before reading financial records.
-- New development database confirmed empty: zero users, sessions, accounts, transactions, holdings, deposits, friends, splits, settlements, and categories. Test data existed only in disposable in-memory databases. Default categories are created on registration.
-- Dependency audit reported zero vulnerabilities. Hosted Vercel/PostgreSQL verification remains pending the deployment owner's environment configuration.
