@@ -1,7 +1,7 @@
 import { betterAuth } from "better-auth/minimal";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { db } from "./db";
-import { seedUser } from "./defaults";
+import { initializeUser } from "./defaults";
 export const auth = betterAuth({
   appName: "Ledgerly",
   database: prismaAdapter(db, { provider: "postgresql", transaction: true }),
@@ -33,7 +33,14 @@ export const auth = betterAuth({
     user: {
       create: {
         after: async (user) => {
-          await db.$transaction((tx) => seedUser(tx, user.id));
+          await initializeUser(db, user.id);
+        },
+      },
+    },
+    session: {
+      create: {
+        after: async (session) => {
+          await initializeUser(db, session.userId);
         },
       },
     },
